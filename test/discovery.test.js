@@ -46,3 +46,21 @@ test("explicit non-StudyCI file remains a strict error", async (t) => {
     }
   );
 });
+
+test("directory check reports duplicate ids and questions across files", async (t) => {
+  const root = await fixture(t);
+  await writeFile(join(root, "questions", "a.yaml"), "questions:\n  - id: shared-001\n    question: What is HTTPS?\n    answer: A\n    source: source-a\n");
+  await writeFile(join(root, "questions", "b.yaml"), "questions:\n  - id: shared-001\n    question: what   is https?\n    answer: B\n    source: source-b\n");
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [cli, "check", root]),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(error.stdout, /ERROR duplicate-id \[shared-001\]/);
+      assert.match(error.stdout, /across files/);
+      assert.match(error.stdout, /WARN\s+duplicate-question \[shared-001\]/);
+      assert.match(error.stdout, /StudyCI checked 2 question\(s\) in 2 file\(s\)\./);
+      return true;
+    }
+  );
+});
