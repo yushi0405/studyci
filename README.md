@@ -144,7 +144,7 @@ The GitHub Action intentionally runs deterministic checks only. Local AI endpoin
 - [x] `.studyci.yaml` configuration
 - [x] optional Ollama semantic review
 - [x] npm-ready package metadata
-- [ ] first npm publication
+- [x] first npm publication
 - [ ] GitHub release/tag
 
 ## License
