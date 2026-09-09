@@ -111,7 +111,7 @@ GitHub Actionは意図的に決定論的チェックのみ実行します。GitH
 - [x] Ollamaによる任意の意味的レビュー
 - [x] npm公開用メタデータ
 - [x] npm初回公開
-- [ ] GitHub release / tag
+- [x] GitHub release / tag
 
 ## License
 
