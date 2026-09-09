@@ -60,6 +60,11 @@ test("QUIZR adapter normalizes map-style YAML and records source lines", async (
   assert.deepEqual(doc.questions[0].answer, { kind: "text", text: "Physical" });
   assert.equal(doc.questions[0].location.line, 1);
   assert.equal(doc.questions[1].location.line, 6);
+  assert.deepEqual(doc.capabilities, {
+    sourceReferences: false,
+    categories: false,
+    tags: false
+  });
 });
 
 test("native Markdown adapter preserves the current StudyCI syntax", async (t) => {
