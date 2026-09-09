@@ -35,6 +35,33 @@ test("native YAML adapter normalizes questions and records source lines", async 
   assert.equal(doc.questions[1].location.line, 6);
 });
 
+test("QUIZR adapter normalizes map-style YAML and records source lines", async (t) => {
+  const root = await fixture(t);
+  const file = join(root, "quizr.yaml");
+  await writeFile(file, [
+    "q_001:",
+    "  prompt: \"What is layer 1?\"",
+    "  answer: \"Physical\"",
+    "  strict: true",
+    "",
+    "q_002:",
+    "  image: \"diagram.png\"",
+    "  prompt: \"What is shown?\"",
+    "  answer: \"A diagram\"",
+    ""
+  ].join("\n"));
+
+  const doc = await loadStudyFile(file);
+  assert.equal(doc.questions.length, 2);
+  assert.equal(doc.questions[0].dialect, "quizr");
+  assert.equal(doc.questions[0].id, "q_001");
+  assert.equal(doc.questions[0].idScope, "file");
+  assert.equal(doc.questions[0].question, "What is layer 1?");
+  assert.deepEqual(doc.questions[0].answer, { kind: "text", text: "Physical" });
+  assert.equal(doc.questions[0].location.line, 1);
+  assert.equal(doc.questions[1].location.line, 6);
+});
+
 test("native Markdown adapter preserves the current StudyCI syntax", async (t) => {
   const root = await fixture(t);
   const file = join(root, "questions.md");
@@ -65,9 +92,12 @@ test("native Markdown adapter preserves the current StudyCI syntax", async (t) =
   assert.equal(doc.questions[0].location.line, 9);
 });
 
-test("directory-style loading still skips unrelated Markdown", async (t) => {
+test("directory-style loading skips unrelated Markdown and QUIZR progress YAML", async (t) => {
   const root = await fixture(t);
-  const file = join(root, "README.md");
-  await writeFile(file, "# Project\n\nGeneral documentation.\n");
-  assert.equal(await tryLoadStudyFile(file), null);
+  const markdown = join(root, "README.md");
+  const progress = join(root, "progress.yaml");
+  await writeFile(markdown, "# Project\n\nGeneral documentation.\n");
+  await writeFile(progress, "__meta__:\n  total_reviews: 10\nCompTIA:\n  Network+: {}\n");
+  assert.equal(await tryLoadStudyFile(markdown), null);
+  assert.equal(await tryLoadStudyFile(progress), null);
 });

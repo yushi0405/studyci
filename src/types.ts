@@ -2,6 +2,8 @@ export type CanonicalAnswer =
   | { kind: "text"; text: string }
   | { kind: "choices"; correct: string[]; options?: string[] };
 
+export type QuestionIdScope = "project" | "file";
+
 export interface SourceLocation {
   file: string;
   line?: number;
@@ -9,6 +11,7 @@ export interface SourceLocation {
 
 export interface CanonicalQuestion {
   id?: string;
+  idScope?: QuestionIdScope;
   question?: string;
   answer?: CanonicalAnswer;
   category?: string;

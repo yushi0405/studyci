@@ -136,7 +136,7 @@ export function checkCrossFileDuplicates(items: LoadedQuestion[]): Finding[] {
     const text = typeof question?.question === "string" ? question.question.trim() : "";
     const line = questionLine(question);
 
-    if (id) {
+    if (id && question.idScope !== "file") {
       const previous = idSeen.get(id);
       if (previous && previous.file !== file) {
         findings.push({
