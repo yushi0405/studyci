@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "check": "node dist/cli.js check examples",
-    "test": "node --test test/*.test.js",
+    "test": "node --test",
     "prepack": "npm run build",
     "prepublishOnly": "npm run build && npm test && npm run check"
   },
