@@ -23,12 +23,15 @@ npx studyci check ./questions
 
 ## Deterministic checks
 
-`studyci check` works without AI or network access. It checks YAML/Markdown parsing, required fields, duplicate IDs and exact question text, missing sources, tags, declared categories, and basic category coverage.
+`studyci check` works without AI or network access. It checks YAML/Markdown parsing, required fields, duplicate IDs and exact question text (including across files), missing sources, tags, declared categories, and basic category coverage.
 
 ```bash
 studyci check .
 studyci check . --format json
+studyci check . --format github
 ```
+
+`--format github` emits GitHub Actions workflow commands for error and warning annotations. When a finding has a question ID, StudyCI maps common YAML `id:` fields and Markdown `## id` headings to a source line on a best-effort basis.
 
 ## Optional local AI review with Ollama
 
@@ -122,10 +125,10 @@ Source: RFC 9110
 ```yaml
 - uses: yushi0405/studyci@main
   with:
-    path: .
+    path: questions
 ```
 
-The GitHub Action intentionally runs deterministic checks only. Local AI endpoints such as Ollama are not assumed to be reachable from GitHub-hosted runners.
+The GitHub Action intentionally runs deterministic checks only. Errors and warnings are emitted as GitHub annotations associated with the relevant repository file and, when it can be determined, the question line. Local AI endpoints such as Ollama are not assumed to be reachable from GitHub-hosted runners.
 
 ## Design principles
 
