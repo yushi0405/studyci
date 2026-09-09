@@ -31,7 +31,7 @@ test("directory scan ignores common directories and skips non-StudyCI documents"
   assert.doesNotMatch(stdout, /parse-error/);
 });
 
-test("explicit non-StudyCI file remains a strict error", async (t) => {
+test("explicit unsupported study file remains a strict error", async (t) => {
   const root = await fixture(t);
   const file = join(root, "notes.yaml");
   await writeFile(file, "name: unrelated\nvalue: 1\n");
@@ -41,7 +41,7 @@ test("explicit non-StudyCI file remains a strict error", async (t) => {
     (error) => {
       assert.equal(error.code, 1);
       assert.match(error.stdout, /parse-error/);
-      assert.match(error.stdout, /does not contain a StudyCI question document/);
+      assert.match(error.stdout, /does not contain a supported study question document/);
       return true;
     }
   );
@@ -63,4 +63,15 @@ test("directory check reports duplicate ids and questions across files", async (
       return true;
     }
   );
+});
+
+test("QUIZR files are auto-detected and file-scoped ids do not conflict", async (t) => {
+  const root = await fixture(t);
+  await writeFile(join(root, "questions", "a.yaml"), "q_001:\n  prompt: Question A?\n  answer: A\n");
+  await writeFile(join(root, "questions", "b.yaml"), "q_001:\n  prompt: Question B?\n  answer: B\n");
+
+  const { stdout } = await execFileAsync(process.execPath, [cli, "check", root]);
+  assert.match(stdout, /StudyCI checked 2 question\(s\) in 2 file\(s\)\./);
+  assert.doesNotMatch(stdout, /ERROR duplicate-id/);
+  assert.match(stdout, /WARN\s+missing-source \[q_001\]/);
 });
