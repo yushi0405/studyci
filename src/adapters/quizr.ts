@@ -74,7 +74,12 @@ function parseQuizr(path: string, content: string): CanonicalDocument | null {
 
   const linesById = topLevelKeyLines(content);
   return {
-    questions: Object.entries(parsed).map(([id, question]) => canonicalQuestion(path, id, question, linesById))
+    questions: Object.entries(parsed).map(([id, question]) => canonicalQuestion(path, id, question, linesById)),
+    capabilities: {
+      sourceReferences: false,
+      categories: false,
+      tags: false
+    }
   };
 }
 

@@ -65,7 +65,7 @@ test("directory check reports duplicate ids and questions across files", async (
   );
 });
 
-test("QUIZR files are auto-detected and file-scoped ids do not conflict", async (t) => {
+test("QUIZR files are auto-detected without unsupported metadata warnings", async (t) => {
   const root = await fixture(t);
   await writeFile(join(root, "questions", "a.yaml"), "q_001:\n  prompt: Question A?\n  answer: A\n");
   await writeFile(join(root, "questions", "b.yaml"), "q_001:\n  prompt: Question B?\n  answer: B\n");
@@ -73,5 +73,6 @@ test("QUIZR files are auto-detected and file-scoped ids do not conflict", async 
   const { stdout } = await execFileAsync(process.execPath, [cli, "check", root]);
   assert.match(stdout, /StudyCI checked 2 question\(s\) in 2 file\(s\)\./);
   assert.doesNotMatch(stdout, /ERROR duplicate-id/);
-  assert.match(stdout, /WARN\s+missing-source \[q_001\]/);
+  assert.doesNotMatch(stdout, /missing-source/);
+  assert.match(stdout, /Errors: 0 \| Warnings: 0/);
 });

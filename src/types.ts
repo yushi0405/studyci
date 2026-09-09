@@ -21,10 +21,17 @@ export interface CanonicalQuestion {
   dialect: string;
 }
 
+export interface DialectCapabilities {
+  sourceReferences?: boolean;
+  categories?: boolean;
+  tags?: boolean;
+}
+
 export interface CanonicalDocument {
   questions: CanonicalQuestion[];
   syllabus?: { categories?: string[] };
   invalidQuestionsArray?: boolean;
+  capabilities?: DialectCapabilities;
 }
 
 export interface StudyAdapter {

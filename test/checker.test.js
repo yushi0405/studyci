@@ -23,6 +23,21 @@ test("reports category counts", () => {
   assert.equal(result.categoryCounts.networking, 1);
 });
 
+test("skips metadata checks that a dialect cannot represent", () => {
+  const result = checkDocument("quizr.yaml", {
+    capabilities: { sourceReferences: false, categories: false, tags: false },
+    syllabus: { categories: ["declared"] },
+    questions: [
+      { id: "q_001", question: "A?", answer: "A", category: "other", tags: "not-an-array" }
+    ]
+  });
+
+  assert.equal(result.findings.some((finding) => finding.code === "missing-source"), false);
+  assert.equal(result.findings.some((finding) => finding.code === "unknown-category"), false);
+  assert.equal(result.findings.some((finding) => finding.code === "invalid-tags"), false);
+  assert.deepEqual(result.categoryCounts, {});
+});
+
 test("detects duplicate ids and exact questions across files", () => {
   const findings = checkCrossFileDuplicates([
     { file: "a.yaml", question: { id: "q1", question: "What is HTTPS?", answer: "A", source: "x" } },

@@ -15,12 +15,19 @@ function questionLine(question: CanonicalQuestion): number | undefined {
   return typeof question.location?.line === "number" ? question.location.line : undefined;
 }
 
+function capabilityEnabled(doc: CanonicalDocument, capability: "sourceReferences" | "categories" | "tags"): boolean {
+  return doc.capabilities?.[capability] !== false;
+}
+
 export function checkDocument(file: string, doc: CanonicalDocument): CheckResult {
   const findings: Finding[] = [];
   const idSeen = new Map<string, CanonicalQuestion>();
   const questionSeen = new Map<string, CanonicalQuestion>();
   const categoryCounts: Record<string, number> = {};
   const allowedCategories = new Set(doc.syllabus?.categories ?? []);
+  const checkSources = capabilityEnabled(doc, "sourceReferences");
+  const checkCategories = capabilityEnabled(doc, "categories");
+  const checkTags = capabilityEnabled(doc, "tags");
 
   if (doc.invalidQuestionsArray || !Array.isArray(doc.questions)) {
     findings.push({
@@ -84,7 +91,7 @@ export function checkDocument(file: string, doc: CanonicalDocument): CheckResult
       }
     }
 
-    if (!q?.source || !String(q.source).trim()) {
+    if (checkSources && (!q?.source || !String(q.source).trim())) {
       findings.push({
         severity: "warning",
         code: "missing-source",
@@ -95,7 +102,7 @@ export function checkDocument(file: string, doc: CanonicalDocument): CheckResult
       });
     }
 
-    if (q?.category) {
+    if (checkCategories && q?.category) {
       const category = String(q.category);
       categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
       if (allowedCategories.size > 0 && !allowedCategories.has(category)) {
@@ -110,7 +117,7 @@ export function checkDocument(file: string, doc: CanonicalDocument): CheckResult
       }
     }
 
-    if (q?.tags !== undefined && (!Array.isArray(q.tags) || q.tags.some((tag) => typeof tag !== "string"))) {
+    if (checkTags && q?.tags !== undefined && (!Array.isArray(q.tags) || q.tags.some((tag) => typeof tag !== "string"))) {
       findings.push({
         severity: "error",
         code: "invalid-tags",
