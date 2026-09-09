@@ -1,18 +1,15 @@
 # StudyCI
 
-共同管理される学習教材・資格問題集・フラッシュカード向けのCI / lintツールです。
+StudyCIは、YAML / Markdownで管理する学習教材、資格問題集、フラッシュカード向けのlintツールです。
+
+通常のチェックはAIやネットワーク接続なしで動作します。必要な場合だけ、ローカルのOllamaを使って意味的なレビューを追加できます。
 
 [English](README.md)
 
-> **v0.2.0:** 安全なディレクトリ探索、ファイルをまたぐ重複検出、GitHub PR annotationを追加しました。決定論的チェックを中核にし、ローカルAIレビューは引き続きオプションです。
-
 ## インストール
-
-npmからインストールできます。
 
 ```bash
 npm install -g studyci
-studyci check ./questions
 ```
 
 グローバルインストールせずに使う場合:
@@ -21,21 +18,83 @@ studyci check ./questions
 npx studyci check ./questions
 ```
 
-## 通常のlint
+Node.js 20以降が必要です。
 
-`studyci check` はAIもネットワークも不要です。YAML/Markdown、必須項目、ファイルをまたぐ重複を含む重複ID・完全一致の問題文、source欠落、tags、category、基本coverageを検査します。
+## 教材をチェックする
+
+```bash
+studyci check ./questions
+```
+
+現在の主なチェック項目:
+
+- YAML / Markdownの解析
+- 必須項目
+- 重複ID
+- 完全一致する問題文
+- ファイルをまたぐ重複
+- `source` の欠落
+- 不正な `tags`
+- 未定義のcategory
+- categoryごとの件数
+
+errorが1件でもある場合、終了コードは `1` になります。warningだけでは失敗扱いになりません。
+
+### ディレクトリ走査
+
+ディレクトリやリポジトリ直下を指定できます。
 
 ```bash
 studyci check .
-studyci check . --format json
-studyci check . --format github
 ```
 
-`--format github` はGitHub Actionsのerror / warning annotation用workflow commandを出力します。findingにquestion IDがある場合、一般的なYAMLの `id:` 行やMarkdownの `## id` 見出しから、可能な範囲で対象行を特定します。
+再帰走査では、次のディレクトリを標準で除外します。
 
-## OllamaによるローカルAIレビュー
+- `.git`
+- `.github`
+- `node_modules`
+- `dist`
+- `coverage`
 
-StudyCIはローカルOllamaを使った意味的レビューにも対応します。デフォルトモデルは `qwen3.5:9b` です。
+ディレクトリ走査中に見つかったStudyCI形式ではないYAML / Markdownはスキップします。ファイルを明示指定した場合は入力ファイルとして扱い、StudyCI文書でなければerrorにします。
+
+## 出力形式
+
+通常のtext出力:
+
+```bash
+studyci check ./questions
+```
+
+JSON出力:
+
+```bash
+studyci check ./questions --format json
+```
+
+GitHub Actions annotation用の出力:
+
+```bash
+studyci check ./questions --format github
+```
+
+GitHub向け出力では、可能な場合にYAMLの `id:` 行やMarkdownの `## id` 見出しから行番号を特定します。
+
+## GitHub Action
+
+```yaml
+- uses: yushi0405/studyci@v0.2.0
+  with:
+    path: questions
+```
+
+Actionでは通常の決定論的チェックを実行し、error / warningをGitHub annotationとして表示します。OllamaレビューはActionでは実行しません。
+
+## ローカルAIレビュー
+
+意味的レビューはオプションです。ローカルのOllamaに接続して実行します。
+
+デフォルトモデル: `qwen3.5:9b`
 
 ```bash
 ollama pull qwen3.5:9b
@@ -43,39 +102,37 @@ ollama serve
 studyci review ./questions
 ```
 
-直接指定する場合:
+モデルや接続先を直接指定する場合:
 
 ```bash
-studyci review ./questions --model qwen3.5:9b --base-url http://127.0.0.1:11434
+studyci review ./questions \
+  --model qwen3.5:9b \
+  --base-url http://127.0.0.1:11434
 ```
 
-通常のtextモードでは、ローカルLLMの待ち時間が無応答に見えないよう、モデル名・接続先・レビュー対象数・所要時間・finding数を表示します。
+現在のAIレビューで警告する内容:
 
-```text
-StudyCI AI review
-Model: qwen3.5:9b
-Endpoint: http://127.0.0.1:11434
-Reviewing 4 question(s)...
+- 意味的に重複している問題
+- 曖昧な問題文
+- 明らかな質問・回答の不整合
 
-WARN semantic-duplicate [network-001]: ...
+外部知識を使った事実確認は行いません。
 
-Completed in 31.4s.
-1 finding(s).
-```
-
-findingだけを出したい場合は `--quiet` を使えます。
+進捗表示が不要な場合:
 
 ```bash
 studyci review ./questions --quiet
 ```
 
-JSON出力には進捗メッセージを混ぜず、機械可読性を維持します。
+JSON出力も利用できます。
 
 ```bash
 studyci review ./questions --format json
 ```
 
-`.studyci.example.yaml` を `.studyci.yaml` にコピーして設定することもできます。
+## 設定
+
+`.studyci.example.yaml` を `.studyci.yaml` にコピーすると、ローカルAIレビューの設定を変更できます。
 
 ```yaml
 ai:
@@ -86,34 +143,31 @@ ai:
   maxQuestions: 50
 ```
 
-AIレビューは現在、次の警告だけを保守的に出します。
-
-- 意味的に重複した問題
-- 実質的に曖昧な問題文
-- 明白な質問・回答の不整合
-
-外部知識による事実確認はまだ行いません。ローカルLLMの不確実な知識を決定論的な検証結果のように扱わないためです。
-
-## GitHub Action
+## YAML例
 
 ```yaml
-- uses: yushi0405/studyci@v0.2.0
-  with:
-    path: questions
+syllabus:
+  categories: [networking, security]
+
+questions:
+  - id: network-001
+    question: What is the default HTTPS port?
+    answer: "443"
+    category: networking
+    tags: [tcp, https]
+    source: RFC 9110
 ```
 
-GitHub Actionは意図的に決定論的チェックのみ実行します。error / warningは、対象のリポジトリファイルと、特定できる場合は問題の行に紐づくGitHub annotationとして表示されます。GitHub-hosted runnerから利用者PC上のOllamaへ接続できることは前提にしません。
+## Markdown例
 
-## v0.2.0の主な内容
-
-- YAML / Markdownの学習コンテンツ
-- 決定論的lintルール
-- 安全な再帰ディレクトリ探索
-- ファイルをまたぐ重複ID・完全一致問題文の検出
-- JSON / GitHub annotation出力
-- GitHub Action連携
-- Ubuntu / WindowsのCI
-- Ollamaによる任意のローカル意味的レビュー
+```markdown
+## network-001
+Question: What is the default HTTPS port?
+Answer: 443
+Category: networking
+Tags: tcp, https
+Source: RFC 9110
+```
 
 ## License
 
