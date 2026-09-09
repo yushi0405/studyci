@@ -46,6 +46,32 @@ studyci review ./questions
 studyci review ./questions --model qwen3.5:9b --base-url http://127.0.0.1:11434
 ```
 
+通常のtextモードでは、ローカルLLMの待ち時間が無応答に見えないよう、モデル名・接続先・レビュー対象数・所要時間・finding数を表示します。
+
+```text
+StudyCI AI review
+Model: qwen3.5:9b
+Endpoint: http://127.0.0.1:11434
+Reviewing 4 question(s)...
+
+WARN semantic-duplicate [network-001]: ...
+
+Completed in 31.4s.
+1 finding(s).
+```
+
+findingだけを出したい場合は `--quiet` を使えます。
+
+```bash
+studyci review ./questions --quiet
+```
+
+JSON出力には進捗メッセージを混ぜず、機械可読性を維持します。
+
+```bash
+studyci review ./questions --format json
+```
+
 `.studyci.example.yaml` を `.studyci.yaml` にコピーして設定することもできます。
 
 ```yaml
