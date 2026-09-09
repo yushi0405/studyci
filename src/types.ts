@@ -1,16 +1,38 @@
-export interface StudyQuestion {
-  id: string;
-  question: string;
-  answer: string;
-  category?: string;
-  tags?: string[];
-  source?: string;
+export type CanonicalAnswer =
+  | { kind: "text"; text: string }
+  | { kind: "choices"; correct: string[]; options?: string[] };
+
+export interface SourceLocation {
+  file: string;
+  line?: number;
 }
 
-export interface StudyDocument {
-  questions: StudyQuestion[];
-  syllabus?: { categories?: string[] };
+export interface CanonicalQuestion {
+  id?: string;
+  question?: string;
+  answer?: CanonicalAnswer;
+  category?: string;
+  tags?: unknown;
+  source?: string;
+  location: SourceLocation;
+  dialect: string;
 }
+
+export interface CanonicalDocument {
+  questions: CanonicalQuestion[];
+  syllabus?: { categories?: string[] };
+  invalidQuestionsArray?: boolean;
+}
+
+export interface StudyAdapter {
+  name: string;
+  supports(path: string): boolean;
+  parse(path: string, content: string): CanonicalDocument | null;
+}
+
+// Backward-compatible internal aliases while the canonical model is introduced.
+export type StudyQuestion = CanonicalQuestion;
+export type StudyDocument = CanonicalDocument;
 
 export type Severity = "error" | "warning";
 
@@ -19,6 +41,7 @@ export interface Finding {
   code: string;
   message: string;
   file: string;
+  line?: number;
   questionId?: string;
   relatedQuestionId?: string;
 }
@@ -43,5 +66,5 @@ export interface StudyCIConfig {
 
 export interface LoadedQuestion {
   file: string;
-  question: StudyQuestion;
+  question: CanonicalQuestion;
 }
