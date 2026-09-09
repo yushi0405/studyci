@@ -40,6 +40,15 @@ test("detects duplicate ids and exact questions across files", () => {
   assert.match(duplicateQuestion?.message ?? "", /first seen as 'q1' in 'a\.yaml'/);
 });
 
+test("file-scoped ids may repeat across files", () => {
+  const findings = checkCrossFileDuplicates([
+    { file: "a.yaml", question: { id: "q_001", idScope: "file", question: "Question A?", answer: "A" } },
+    { file: "b.yaml", question: { id: "q_001", idScope: "file", question: "Question B?", answer: "B" } }
+  ]);
+
+  assert.equal(findings.some((finding) => finding.code === "duplicate-id"), false);
+});
+
 test("does not duplicate same-file findings at project scope", () => {
   const findings = checkCrossFileDuplicates([
     { file: "a.yaml", question: { id: "q1", question: "A?", answer: "A" } },
