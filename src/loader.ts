@@ -1,93 +1,25 @@
 import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
-import YAML from "yaml";
-import type { StudyDocument, StudyQuestion } from "./types.js";
+import { nativeAdapter } from "./adapters/native.js";
+import type { CanonicalDocument, StudyAdapter } from "./types.js";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+const adapters: StudyAdapter[] = [nativeAdapter];
+
+function adapterFor(path: string): StudyAdapter | undefined {
+  return adapters.find((adapter) => adapter.supports(path));
 }
 
-function isQuestionLike(value: unknown): boolean {
-  return isRecord(value) && ("id" in value || "question" in value || "answer" in value);
-}
-
-function yamlStudyDocument(parsed: unknown): StudyDocument | null {
-  if (Array.isArray(parsed)) {
-    if (parsed.length === 0) return { questions: [] };
-    if (!parsed.every(isQuestionLike)) return null;
-    return { questions: parsed as StudyQuestion[] };
+export async function tryLoadStudyFile(path: string): Promise<CanonicalDocument | null> {
+  const adapter = adapterFor(path);
+  if (!adapter) {
+    const extension = path.includes(".") ? path.slice(path.lastIndexOf(".")) : "";
+    throw new Error(`Unsupported file type: ${extension}`);
   }
 
-  if (isRecord(parsed) && "questions" in parsed) return parsed as unknown as StudyDocument;
-  return null;
-}
-
-function stripFencedCodeBlocks(content: string): string {
-  const visible: string[] = [];
-  let fence: "```" | "~~~" | null = null;
-
-  for (const line of content.split(/\r?\n/)) {
-    const trimmed = line.trimStart();
-    if (fence) {
-      if (trimmed.startsWith(fence)) fence = null;
-      continue;
-    }
-    if (trimmed.startsWith("```")) {
-      fence = "```";
-      continue;
-    }
-    if (trimmed.startsWith("~~~")) {
-      fence = "~~~";
-      continue;
-    }
-    visible.push(line);
-  }
-
-  return visible.join("\n");
-}
-
-function parseMarkdown(content: string): StudyDocument | null {
-  const questions: StudyQuestion[] = [];
-  const visibleContent = stripFencedCodeBlocks(content);
-  const blocks = visibleContent.split(/\n(?=##\s+)/g);
-
-  for (const block of blocks) {
-    const idMatch = block.match(/^##\s+(.+)$/m);
-    const qMatch = block.match(/^Question:\s*(.*)$/mi);
-    const aMatch = block.match(/^Answer:\s*(.*)$/mi);
-    if (!idMatch || (!qMatch && !aMatch)) continue;
-
-    const categoryMatch = block.match(/^Category:\s*(.+)$/mi);
-    const tagsMatch = block.match(/^Tags:\s*(.+)$/mi);
-    const sourceMatch = block.match(/^Source:\s*(.+)$/mi);
-
-    questions.push({
-      id: idMatch[1].trim(),
-      question: qMatch?.[1].trim() ?? "",
-      answer: aMatch?.[1].trim() ?? "",
-      category: categoryMatch?.[1].trim(),
-      tags: tagsMatch?.[1].split(",").map((x) => x.trim()).filter(Boolean),
-      source: sourceMatch?.[1].trim()
-    });
-  }
-
-  return questions.length > 0 ? { questions } : null;
-}
-
-export async function tryLoadStudyFile(path: string): Promise<StudyDocument | null> {
   const content = await readFile(path, "utf8");
-  const ext = extname(path).toLowerCase();
-
-  if (ext === ".yaml" || ext === ".yml") {
-    return yamlStudyDocument(YAML.parse(content) as unknown);
-  }
-
-  if (ext === ".md" || ext === ".markdown") return parseMarkdown(content);
-
-  throw new Error(`Unsupported file type: ${ext}`);
+  return adapter.parse(path, content);
 }
 
-export async function loadStudyFile(path: string): Promise<StudyDocument> {
+export async function loadStudyFile(path: string): Promise<CanonicalDocument> {
   const doc = await tryLoadStudyFile(path);
   if (!doc) throw new Error("File does not contain a StudyCI question document.");
   return doc;
