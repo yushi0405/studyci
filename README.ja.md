@@ -110,7 +110,7 @@ GitHub Actionは意図的に決定論的チェックのみ実行します。GitH
 - [x] `.studyci.yaml`
 - [x] Ollamaによる任意の意味的レビュー
 - [x] npm公開用メタデータ
-- [ ] npm初回公開
+- [x] npm初回公開
 - [ ] GitHub release / tag
 
 ## License

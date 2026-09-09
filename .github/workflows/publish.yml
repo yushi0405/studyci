@@ -14,13 +14,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
-      - run: npm install
+
+      - run: npm ci
       - run: npm run build
       - run: npm test
       - run: npm run check
-      - run: npm publish --access public
+
+      - name: Check whether version already exists
+        id: npm-version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "studyci@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "studyci@$VERSION is already published."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        if: steps.npm-version.outputs.exists != 'true'
+        run: npm publish --access public

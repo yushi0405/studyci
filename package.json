@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "CI and linting tools for collaboratively maintained study materials and certification question banks.",
   "type": "module",
-  "bin": { "studyci": "./dist/cli.js" },
+  "bin": { "studyci": "dist/cli.js" },
   "files": ["dist", "README.md", "README.ja.md", "LICENSE", ".studyci.example.yaml"],
   "scripts": {
     "build": "tsc",
