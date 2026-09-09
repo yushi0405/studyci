@@ -9,6 +9,7 @@ import type { Finding, LoadedQuestion } from "./types.js";
 
 const VERSION = "0.1.0";
 const supported = new Set([".yaml", ".yml", ".md", ".markdown"]);
+const valueOptions = new Set(["--model", "--base-url", "--format"]);
 
 type Format = "text" | "json";
 
@@ -28,9 +29,21 @@ function option(args: string[], name: string): string | undefined {
   return index >= 0 ? args[index + 1] : undefined;
 }
 
+function hasFlag(args: string[], name: string): boolean {
+  return args.includes(name);
+}
+
 function positionalPath(args: string[]): string {
-  const candidates = args.filter((arg, index) => !arg.startsWith("--") && (index === 0 || !args[index - 1].startsWith("--")));
-  return candidates[0] ?? ".";
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (valueOptions.has(arg)) {
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--")) continue;
+    return arg;
+  }
+  return ".";
 }
 
 function formatFinding(f: Finding): string {
@@ -40,13 +53,13 @@ function formatFinding(f: Finding): string {
   return `${symbol} ${f.code}${id}: ${f.message}${related} (${f.file})`;
 }
 
-function printFindings(findings: Finding[], format: Format): void {
+function printFindings(findings: Finding[], format: Format, quiet = false): void {
   if (format === "json") {
     console.log(JSON.stringify({ findings }, null, 2));
     return;
   }
   for (const finding of findings) console.log(formatFinding(finding));
-  if (findings.length === 0) console.log("No findings.");
+  if (findings.length === 0 && !quiet) console.log("No findings.");
 }
 
 async function loadQuestions(files: string[]): Promise<LoadedQuestion[]> {
@@ -91,8 +104,29 @@ async function runReview(path: string, args: string[], format: Format): Promise<
   const config = await loadConfig();
   if (option(args, "--model")) config.ai.model = option(args, "--model")!;
   if (option(args, "--base-url")) config.ai.baseUrl = option(args, "--base-url")!;
-  const findings = await reviewWithOllama(await loadQuestions(files), config.ai);
-  printFindings(findings, format);
+  const quiet = hasFlag(args, "--quiet");
+  const questions = await loadQuestions(files);
+  const startedAt = Date.now();
+
+  if (format === "text" && !quiet) {
+    console.log("StudyCI AI review");
+    console.log(`Model: ${config.ai.model}`);
+    console.log(`Endpoint: ${config.ai.baseUrl}`);
+    const reviewedCount = Math.min(questions.length, config.ai.maxQuestions);
+    const suffix = reviewedCount < questions.length ? ` (first ${reviewedCount} of ${questions.length})` : "";
+    console.log(`Reviewing ${reviewedCount} question(s)${suffix}...`);
+    console.log("");
+  }
+
+  const findings = await reviewWithOllama(questions, config.ai);
+  printFindings(findings, format, quiet);
+
+  if (format === "text" && !quiet) {
+    const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+    console.log("");
+    console.log(`Completed in ${elapsedSeconds}s.`);
+    console.log(`${findings.length} finding(s).`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -100,7 +134,7 @@ async function main(): Promise<void> {
   if (args.includes("--version") || args[0] === "version") { console.log(VERSION); return; }
   const command = args.shift();
   if (!command || !["check", "review"].includes(command)) {
-    console.error("Usage:\n  studyci check [path] [--format text|json]\n  studyci review [path] [--model qwen3.5:9b] [--base-url http://127.0.0.1:11434] [--format text|json]\n  studyci --version");
+    console.error("Usage:\n  studyci check [path] [--format text|json]\n  studyci review [path] [--model qwen3.5:9b] [--base-url http://127.0.0.1:11434] [--format text|json] [--quiet]\n  studyci --version");
     process.exitCode = 2;
     return;
   }
