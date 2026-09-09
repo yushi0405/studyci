@@ -1,0 +1,40 @@
+function normalized(text) {
+  return text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+export function checkDocument(file, doc) {
+  const findings = [];
+  const idSeen = new Map();
+  const questionSeen = new Map();
+  const categoryCounts = {};
+  const allowedCategories = new Set(doc.syllabus?.categories ?? []);
+  if (!Array.isArray(doc.questions)) {
+    findings.push({ severity: "error", code: "invalid-document", message: "The document must contain a questions array.", file });
+    return { findings, questionCount: 0, categoryCounts };
+  }
+  for (const [index, q] of doc.questions.entries()) {
+    const fallback = `question #${index + 1}`;
+    const id = typeof q?.id === "string" ? q.id.trim() : "";
+    for (const field of ["id", "question", "answer"]) {
+      if (typeof q?.[field] !== "string" || !q[field].trim()) {
+        findings.push({ severity: "error", code: "required-field", message: `${fallback} is missing required field '${field}'.`, file, questionId: id || undefined });
+      }
+    }
+    if (id) {
+      if (idSeen.has(id)) findings.push({ severity: "error", code: "duplicate-id", message: `Duplicate question id '${id}'.`, file, questionId: id });
+      else idSeen.set(id, q);
+    }
+    if (typeof q?.question === "string" && q.question.trim()) {
+      const key = normalized(q.question);
+      const previous = questionSeen.get(key);
+      if (previous) findings.push({ severity: "warning", code: "duplicate-question", message: `Exact duplicate question text; first seen as '${previous.id}'.`, file, questionId: id || undefined });
+      else questionSeen.set(key, q);
+    }
+    if (!q?.source || !String(q.source).trim()) findings.push({ severity: "warning", code: "missing-source", message: "Question has no source reference.", file, questionId: id || undefined });
+    if (q?.category) {
+      categoryCounts[q.category] = (categoryCounts[q.category] ?? 0) + 1;
+      if (allowedCategories.size > 0 && !allowedCategories.has(q.category)) findings.push({ severity: "warning", code: "unknown-category", message: `Category '${q.category}' is not declared in syllabus.categories.`, file, questionId: id || undefined });
+    }
+    if (q?.tags !== undefined && (!Array.isArray(q.tags) || q.tags.some((t) => typeof t !== "string"))) findings.push({ severity: "error", code: "invalid-tags", message: "tags must be an array of strings.", file, questionId: id || undefined });
+  }
+  return { findings, questionCount: doc.questions.length, categoryCounts };
+}

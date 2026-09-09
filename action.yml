@@ -1,0 +1,21 @@
+name: StudyCI
+description: Lint study materials and certification question banks
+inputs:
+  path:
+    description: File or directory to check
+    required: false
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+    - name: Install StudyCI runtime dependency
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm install --omit=dev --ignore-scripts
+    - name: Run StudyCI
+      shell: bash
+      run: node "${{ github.action_path }}/dist/cli.js" check "${{ inputs.path }}"

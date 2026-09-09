@@ -1,0 +1,22 @@
+syllabus:
+  categories:
+    - networking
+    - security
+
+questions:
+  - id: network-001
+    question: What is the default HTTPS port?
+    answer: "443"
+    category: networking
+    tags:
+      - tcp
+      - https
+    source: RFC 9110
+
+  - id: security-001
+    question: What property ensures data is not altered without detection?
+    answer: Integrity
+    category: security
+    tags:
+      - security
+    source: Example certification syllabus
