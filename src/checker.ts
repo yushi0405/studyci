@@ -1,4 +1,4 @@
-import type { CheckResult, Finding, StudyDocument, StudyQuestion } from "./types.js";
+import type { CheckResult, Finding, LoadedQuestion, StudyDocument, StudyQuestion } from "./types.js";
 
 function normalized(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
@@ -102,4 +102,49 @@ export function checkDocument(file: string, doc: StudyDocument): CheckResult {
   }
 
   return { findings, questionCount: doc.questions.length, categoryCounts };
+}
+
+export function checkCrossFileDuplicates(items: LoadedQuestion[]): Finding[] {
+  const findings: Finding[] = [];
+  const idSeen = new Map<string, LoadedQuestion>();
+  const questionSeen = new Map<string, LoadedQuestion>();
+
+  for (const item of items) {
+    const { file, question } = item;
+    const id = typeof question?.id === "string" ? question.id.trim() : "";
+
+    if (id) {
+      const previous = idSeen.get(id);
+      if (previous && previous.file !== file) {
+        findings.push({
+          severity: "error",
+          code: "duplicate-id",
+          message: `Duplicate question id '${id}' across files; first seen in '${previous.file}'.`,
+          file,
+          questionId: id
+        });
+      } else if (!previous) {
+        idSeen.set(id, item);
+      }
+    }
+
+    if (typeof question?.question === "string" && question.question.trim()) {
+      const key = normalized(question.question);
+      const previous = questionSeen.get(key);
+      if (previous && previous.file !== file) {
+        findings.push({
+          severity: "warning",
+          code: "duplicate-question",
+          message: `Exact duplicate question text across files; first seen as '${previous.question.id}' in '${previous.file}'.`,
+          file,
+          questionId: id || undefined,
+          relatedQuestionId: previous.question.id
+        });
+      } else if (!previous) {
+        questionSeen.set(key, item);
+      }
+    }
+  }
+
+  return findings;
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
-import { checkDocument } from "./checker.js";
+import { checkCrossFileDuplicates, checkDocument } from "./checker.js";
 import { discoverFiles } from "./discovery.js";
 import { loadStudyFile, tryLoadStudyFile } from "./loader.js";
 import { loadConfig } from "./config.js";
@@ -67,6 +67,7 @@ async function loadQuestions(files: string[], explicitFile: boolean): Promise<Lo
 async function runCheck(path: string, format: Format): Promise<void> {
   const { files, explicitFile } = await discoverFiles(resolve(path));
   const findings: Finding[] = [];
+  const projectQuestions: LoadedQuestion[] = [];
   let questions = 0;
   let checkedFiles = 0;
   const categories: Record<string, number> = {};
@@ -79,11 +80,16 @@ async function runCheck(path: string, format: Format): Promise<void> {
       const result = checkDocument(file, doc);
       findings.push(...result.findings);
       questions += result.questionCount;
+      if (Array.isArray(doc.questions)) {
+        for (const question of doc.questions) projectQuestions.push({ file, question });
+      }
       for (const [category, count] of Object.entries(result.categoryCounts)) categories[category] = (categories[category] ?? 0) + count;
     } catch (error) {
       findings.push({ severity: "error", code: "parse-error", message: error instanceof Error ? error.message : String(error), file });
     }
   }
+
+  findings.push(...checkCrossFileDuplicates(projectQuestions));
 
   if (format === "json") console.log(JSON.stringify({ findings, questionCount: questions, fileCount: checkedFiles, categoryCounts: categories }, null, 2));
   else {
