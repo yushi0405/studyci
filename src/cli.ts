@@ -8,7 +8,7 @@ import { loadConfig } from "./config.js";
 import { reviewWithOllama } from "./ai/ollama.js";
 import type { Finding, LoadedQuestion, StudyDocument } from "./types.js";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const valueOptions = new Set(["--model", "--base-url", "--format"]);
 
 type Format = "text" | "json" | "github";
