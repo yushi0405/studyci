@@ -3,32 +3,21 @@
   "version": "0.1.0",
   "description": "CI and linting tools for collaboratively maintained study materials and certification question banks.",
   "type": "module",
-  "bin": {
-    "studyci": "./dist/cli.js"
-  },
+  "bin": { "studyci": "./dist/cli.js" },
+  "files": ["dist", "README.md", "README.ja.md", "LICENSE", ".studyci.example.yaml"],
   "scripts": {
     "build": "tsc",
     "check": "node dist/cli.js check examples",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "prepublishOnly": "npm run build && npm test && npm run check"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "keywords": [
-    "education",
-    "lint",
-    "ci",
-    "study",
-    "certification",
-    "question-bank",
-    "github-actions"
-  ],
+  "engines": { "node": ">=20" },
+  "repository": { "type": "git", "url": "git+https://github.com/yushi0405/studyci.git" },
+  "homepage": "https://github.com/yushi0405/studyci#readme",
+  "bugs": { "url": "https://github.com/yushi0405/studyci/issues" },
+  "publishConfig": { "access": "public" },
+  "keywords": ["education", "lint", "ci", "study", "certification", "question-bank", "github-actions", "ollama"],
   "license": "MIT",
-  "dependencies": {
-    "yaml": "^2.8.1"
-  },
-  "devDependencies": {
-    "@types/node": "^24.3.1",
-    "typescript": "^5.9.2"
-  }
+  "dependencies": { "yaml": "^2.8.1" },
+  "devDependencies": { "@types/node": "^24.3.1", "typescript": "^5.9.2" }
 }

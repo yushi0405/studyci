@@ -1,37 +1,71 @@
 # StudyCI
 
-CI and linting tools for collaboratively maintained study materials, certification question banks, and flashcards.
+CI and linting for collaboratively maintained study materials, certification question banks, and flashcards.
 
 [日本語](README.ja.md)
 
-> **Status:** early MVP. StudyCI starts with deterministic, reproducible checks. AI-assisted review is planned as an optional layer.
+> **v0.1.0 candidate:** deterministic checks are the core; local AI review is optional.
 
-## Why StudyCI?
+## Install
 
-Study content is increasingly maintained like software: in Git repositories, through pull requests, reviews, releases, and community contributions. StudyCI brings software-style quality checks to educational content.
-
-The MVP checks:
-
-- YAML and Markdown question-bank parsing
-- required fields (`id`, `question`, `answer`)
-- duplicate IDs
-- exact duplicate question text
-- missing sources
-- invalid tags
-- undeclared categories
-- category coverage counts
-
-Planned optional AI-assisted checks include semantic duplicates, ambiguity detection, answer/source consistency, and stale-content review.
-
-## Quick start
+After the first npm release:
 
 ```bash
-npm install
-npm run build
-node dist/cli.js check examples
+npm install -g studyci
+studyci check ./questions
 ```
 
-## Example YAML
+Or run without a global install:
+
+```bash
+npx studyci check ./questions
+```
+
+## Deterministic checks
+
+`studyci check` works without AI or network access. It checks YAML/Markdown parsing, required fields, duplicate IDs and exact question text, missing sources, tags, declared categories, and basic category coverage.
+
+```bash
+studyci check .
+studyci check . --format json
+```
+
+## Optional local AI review with Ollama
+
+StudyCI can use a local Ollama model for semantic review. The default is `qwen3.5:9b`.
+
+```bash
+ollama pull qwen3.5:9b
+ollama serve
+studyci review ./questions
+```
+
+Override the model or endpoint directly:
+
+```bash
+studyci review ./questions --model qwen3.5:9b --base-url http://127.0.0.1:11434
+```
+
+Or copy `.studyci.example.yaml` to `.studyci.yaml`:
+
+```yaml
+ai:
+  provider: ollama
+  model: qwen3.5:9b
+  baseUrl: http://127.0.0.1:11434
+  timeoutMs: 120000
+  maxQuestions: 50
+```
+
+AI review currently reports only conservative warnings for:
+
+- semantic duplicates
+- materially ambiguous questions
+- obvious question/answer mismatches
+
+It deliberately does **not** use outside knowledge for fact checking in v0.1.0. This keeps local-model review useful without presenting uncertain model knowledge as a deterministic validation result.
+
+## YAML example
 
 ```yaml
 syllabus:
@@ -46,7 +80,7 @@ questions:
     source: RFC 9110
 ```
 
-## Markdown format
+## Markdown example
 
 ```markdown
 ## network-001
@@ -65,32 +99,27 @@ Source: RFC 9110
     path: .
 ```
 
-For production repositories, pin a release tag once stable releases are available.
+The GitHub Action intentionally runs deterministic checks only. Local AI endpoints such as Ollama are not assumed to be reachable from GitHub-hosted runners.
 
 ## Design principles
 
-1. **Useful without AI** — deterministic linting remains free and reproducible.
-2. **AI only where semantics matter** — semantic duplicate and ambiguity review are optional.
-3. **Language-agnostic** — multilingual repositories, including Japanese content, are first-class use cases.
-4. **Git-native** — local CLI and CI output fit pull-request workflows.
-5. **Open formats** — study content should remain portable across tools.
+1. Useful without AI.
+2. AI only where semantics matter.
+3. Multilingual content is a first-class use case.
+4. Git-native CLI and CI workflows.
+5. Open, portable study formats.
 
-## Roadmap
+## v0.1.0 scope
 
-- [x] CLI scaffold
 - [x] YAML and Markdown loading
 - [x] deterministic lint rules
-- [x] basic category coverage
-- [x] GitHub Action
-- [ ] JSON output / GitHub annotations
-- [ ] configurable rule severity
-- [ ] syllabus percentage coverage
-- [ ] stable v0.1 release
-- [ ] optional AI review layer
-
-## Contributing
-
-Issues and pull requests are welcome. The project intentionally keeps its core deterministic and vendor-neutral.
+- [x] CLI and GitHub Action
+- [x] JSON output
+- [x] `.studyci.yaml` configuration
+- [x] optional Ollama semantic review
+- [x] npm-ready package metadata
+- [ ] first npm publication
+- [ ] GitHub release/tag
 
 ## License
 

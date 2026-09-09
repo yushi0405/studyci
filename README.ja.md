@@ -4,44 +4,66 @@
 
 [English](README.md)
 
-> **状態:** 初期MVPです。まず決定論的で再現可能なチェックを実装し、AIレビューは将来のオプション機能として追加します。
+> **v0.1.0候補:** 決定論的チェックを中核にし、ローカルAIレビューはオプションです。
 
-## StudyCIの目的
+## インストール
 
-教材もソフトウェアと同じように、Gitリポジトリ、Pull Request、レビュー、リリース、コミュニティ貢献によって管理できます。StudyCIは教育コンテンツにソフトウェア開発と同様の品質チェックを持ち込みます。
-
-MVPでは以下を検査します。
-
-- YAML / Markdown問題集の読み込み
-- 必須フィールド (`id`, `question`, `answer`)
-- ID重複
-- 問題文の完全一致重複
-- 出典の欠落
-- 不正なtags
-- syllabusで宣言されていないcategory
-- category別問題数
-
-将来的には、意味的な重複、曖昧な問題文、回答と出典の整合性、古くなった教材の検出をAIによるオプション機能として追加する予定です。
-
-## クイックスタート
+npm初回公開後は次のように利用できます。
 
 ```bash
-npm install
-npm run build
-node dist/cli.js check examples
+npm install -g studyci
+studyci check ./questions
 ```
 
-## YAML例
+グローバルインストールせずに使う場合:
+
+```bash
+npx studyci check ./questions
+```
+
+## 通常のlint
+
+`studyci check` はAIもネットワークも不要です。YAML/Markdown、必須項目、重複ID、完全一致の問題文、source欠落、tags、category、基本coverageを検査します。
+
+```bash
+studyci check .
+studyci check . --format json
+```
+
+## OllamaによるローカルAIレビュー
+
+StudyCIはローカルOllamaを使った意味的レビューにも対応します。デフォルトモデルは `qwen3.5:9b` です。
+
+```bash
+ollama pull qwen3.5:9b
+ollama serve
+studyci review ./questions
+```
+
+直接指定する場合:
+
+```bash
+studyci review ./questions --model qwen3.5:9b --base-url http://127.0.0.1:11434
+```
+
+`.studyci.example.yaml` を `.studyci.yaml` にコピーして設定することもできます。
 
 ```yaml
-questions:
-  - id: fe-network-001
-    question: TCPの3-way handshakeの順序は？
-    answer: SYN → SYN/ACK → ACK
-    category: networking
-    tags: [tcp, network]
-    source: サンプル教材
+ai:
+  provider: ollama
+  model: qwen3.5:9b
+  baseUrl: http://127.0.0.1:11434
+  timeoutMs: 120000
+  maxQuestions: 50
 ```
+
+v0.1.0のAIレビューは次の警告だけを保守的に出します。
+
+- 意味的に重複した問題
+- 実質的に曖昧な問題文
+- 明白な質問・回答の不整合
+
+外部知識による事実確認はまだ行いません。ローカルLLMの不確実な知識を決定論的な検証結果のように扱わないためです。
 
 ## GitHub Action
 
@@ -51,15 +73,19 @@ questions:
     path: .
 ```
 
-安定版リリース後は、`main` ではなくリリースタグへの固定を推奨します。
+GitHub Actionは意図的に決定論的チェックのみ実行します。GitHub-hosted runnerから利用者PC上のOllamaへ接続できることを前提にしないためです。
 
-## 設計原則
+## v0.1.0の範囲
 
-1. **AIなしでも有用** — 基本lintは無料かつ再現可能にする。
-2. **意味理解が必要な箇所だけAI** — 意味的重複や曖昧性判定はオプションにする。
-3. **多言語を前提** — 日本語を含む多言語教材を正式なユースケースとする。
-4. **Gitネイティブ** — CLIとCIをPull Requestのワークフローに自然に組み込む。
-5. **オープン形式** — 教材データを特定サービスに閉じ込めない。
+- [x] YAML / Markdown
+- [x] 決定論的lint
+- [x] CLI / GitHub Action
+- [x] JSON出力
+- [x] `.studyci.yaml`
+- [x] Ollamaによる任意の意味的レビュー
+- [x] npm公開用メタデータ
+- [ ] npm初回公開
+- [ ] GitHub release / tag
 
 ## License
 
