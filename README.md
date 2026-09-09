@@ -33,12 +33,49 @@ StudyCI currently checks:
 - duplicate IDs
 - exact duplicate question text
 - duplicates across files
-- missing `source`
-- invalid `tags`
-- undeclared categories
-- category counts
+- missing `source` when the input format supports source references
+- invalid `tags` when the input format supports tags
+- undeclared categories when the input format supports categories
+- category counts when categories are available
 
 A check exits with status `1` when an error is found. Warnings do not fail the command.
+
+## Supported input formats
+
+StudyCI auto-detects supported formats during loading.
+
+### Native StudyCI YAML
+
+```yaml
+questions:
+  - id: network-001
+    question: What is the default HTTPS port?
+    answer: "443"
+    source: RFC 9110
+```
+
+A top-level YAML array of question objects is also supported.
+
+### Native StudyCI Markdown
+
+```markdown
+## network-001
+Question: What is the default HTTPS port?
+Answer: 443
+Source: RFC 9110
+```
+
+### QUIZR-style YAML
+
+QUIZR-style YAML maps top-level question IDs to `prompt` and `answer` fields:
+
+```yaml
+q_001:
+  prompt: What is the name of OSI Layer 1?
+  answer: Physical
+```
+
+QUIZR IDs are treated as file-scoped because the format commonly reuses identifiers such as `q_001` in different files. Checks that depend on `source`, `category`, or `tags` are skipped for QUIZR documents because those fields are not part of the format.
 
 ### Directory scans
 
@@ -56,7 +93,7 @@ Recursive scans ignore these directories by default:
 - `dist`
 - `coverage`
 
-Unrelated YAML and Markdown files are skipped during directory scans. If a file is passed explicitly, StudyCI treats it as input and reports an error when it is not a StudyCI document.
+Unrelated YAML and Markdown files are skipped during directory scans. If a file is passed explicitly, StudyCI treats it as input and reports an error when it does not contain a supported study document.
 
 ## Output formats
 
@@ -78,12 +115,12 @@ GitHub Actions annotations:
 studyci check ./questions --format github
 ```
 
-For GitHub output, StudyCI maps YAML `id:` entries and Markdown `## id` headings to line numbers when possible.
+StudyCI reports source line numbers when the active input adapter can determine them.
 
 ## GitHub Action
 
 ```yaml
-- uses: yushi0405/studyci@v0.2.0
+- uses: yushi0405/studyci@v0.3.0
   with:
     path: questions
 ```
@@ -143,7 +180,7 @@ ai:
   maxQuestions: 50
 ```
 
-## YAML example
+## Native YAML example with metadata
 
 ```yaml
 syllabus:
@@ -158,7 +195,7 @@ questions:
     source: RFC 9110
 ```
 
-## Markdown example
+## Native Markdown example with metadata
 
 ```markdown
 ## network-001
