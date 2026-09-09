@@ -29,11 +29,13 @@ function answerText(answer: CanonicalAnswer | string | undefined): string {
 
 export async function reviewWithOllama(items: LoadedQuestion[], config: OllamaConfig): Promise<Finding[]> {
   const selected = items.slice(0, config.maxQuestions);
+  const reviewItems = selected.map((item, index) => ({ reviewId: `item-${index + 1}`, item }));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
-  const payload = selected.map(({ file, question }) => ({
+  const payload = reviewItems.map(({ reviewId, item: { file, question } }) => ({
+    questionId: reviewId,
+    sourceId: question.id ?? null,
     file,
-    id: question.id,
     question: question.question,
     answer: answerText(question.answer as CanonicalAnswer | string | undefined),
     category: question.category ?? null,
@@ -54,7 +56,7 @@ export async function reviewWithOllama(items: LoadedQuestion[], config: OllamaCo
         messages: [
           {
             role: "system",
-            content: "You are StudyCI's conservative semantic reviewer. Review only the supplied study questions. Flag semantic duplicates, materially ambiguous questions, or obvious mismatches between a question and its answer. Do not fact-check against outside knowledge, do not invent missing sources, and do not flag writing style or language choice. Return no finding when uncertain."
+            content: "You are StudyCI's conservative semantic reviewer. Review only the supplied study questions. Flag semantic duplicates, materially ambiguous questions, or obvious mismatches between a question and its answer. Do not fact-check against outside knowledge, do not invent missing sources, and do not flag writing style or language choice. Use the supplied questionId values exactly in findings. Return no finding when uncertain."
           },
           { role: "user", content: JSON.stringify(payload) }
         ]
@@ -65,19 +67,20 @@ export async function reviewWithOllama(items: LoadedQuestion[], config: OllamaCo
     const body = await response.json() as { message?: { content?: string } };
     if (!body.message?.content) throw new Error("Ollama returned no message content.");
     const parsed = JSON.parse(body.message.content) as { findings?: Array<{ code: string; questionId: string; relatedQuestionId?: string; message: string }> };
-    const byId = new Map(selected.flatMap((item) => item.question.id ? [[item.question.id, item] as const] : []));
+    const byReviewId = new Map(reviewItems.map(({ reviewId, item }) => [reviewId, item] as const));
 
     const findings: Finding[] = (parsed.findings ?? []).flatMap((finding) => {
-      const item = byId.get(finding.questionId);
+      const item = byReviewId.get(finding.questionId);
       if (!item) return [];
+      const related = finding.relatedQuestionId ? byReviewId.get(finding.relatedQuestionId) : undefined;
       return [{
         severity: "warning" as const,
         code: finding.code,
         message: finding.message,
         file: item.file,
         line: item.question.location?.line,
-        questionId: finding.questionId,
-        relatedQuestionId: finding.relatedQuestionId
+        questionId: item.question.id ?? finding.questionId,
+        relatedQuestionId: related?.question.id ?? finding.relatedQuestionId
       }];
     });
 
