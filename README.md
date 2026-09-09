@@ -4,11 +4,11 @@ CI and linting for collaboratively maintained study materials, certification que
 
 [日本語](README.ja.md)
 
-> **v0.1.0 candidate:** deterministic checks are the core; local AI review is optional.
+> **v0.2.0:** safe directory discovery, cross-file duplicate checks, and GitHub PR annotations, with deterministic checks as the core and local AI review remaining optional.
 
 ## Install
 
-After the first npm release:
+Install from npm:
 
 ```bash
 npm install -g studyci
@@ -92,7 +92,7 @@ AI review currently reports only conservative warnings for:
 - materially ambiguous questions
 - obvious question/answer mismatches
 
-It deliberately does **not** use outside knowledge for fact checking in v0.1.0. This keeps local-model review useful without presenting uncertain model knowledge as a deterministic validation result.
+It deliberately does **not** use outside knowledge for fact checking. This keeps local-model review useful without presenting uncertain model knowledge as a deterministic validation result.
 
 ## YAML example
 
@@ -123,7 +123,7 @@ Source: RFC 9110
 ## GitHub Action
 
 ```yaml
-- uses: yushi0405/studyci@main
+- uses: yushi0405/studyci@v0.2.0
   with:
     path: questions
 ```
@@ -138,17 +138,16 @@ The GitHub Action intentionally runs deterministic checks only. Errors and warni
 4. Git-native CLI and CI workflows.
 5. Open, portable study formats.
 
-## v0.1.0 scope
+## v0.2.0 highlights
 
-- [x] YAML and Markdown loading
-- [x] deterministic lint rules
-- [x] CLI and GitHub Action
-- [x] JSON output
-- [x] `.studyci.yaml` configuration
-- [x] optional Ollama semantic review
-- [x] npm-ready package metadata
-- [x] first npm publication
-- [x] GitHub release/tag
+- YAML and Markdown study content
+- deterministic lint rules
+- safe recursive directory discovery
+- cross-file duplicate ID and exact-question detection
+- JSON and GitHub annotation output
+- GitHub Action integration
+- Ubuntu and Windows CI coverage
+- optional local Ollama semantic review
 
 ## License
 
