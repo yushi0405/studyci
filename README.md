@@ -145,7 +145,7 @@ The GitHub Action intentionally runs deterministic checks only. Local AI endpoin
 - [x] optional Ollama semantic review
 - [x] npm-ready package metadata
 - [x] first npm publication
-- [ ] GitHub release/tag
+- [x] GitHub release/tag
 
 ## License
 
