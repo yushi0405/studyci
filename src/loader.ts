@@ -22,9 +22,34 @@ function yamlStudyDocument(parsed: unknown): StudyDocument | null {
   return null;
 }
 
+function stripFencedCodeBlocks(content: string): string {
+  const visible: string[] = [];
+  let fence: "```" | "~~~" | null = null;
+
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trimStart();
+    if (fence) {
+      if (trimmed.startsWith(fence)) fence = null;
+      continue;
+    }
+    if (trimmed.startsWith("```")) {
+      fence = "```";
+      continue;
+    }
+    if (trimmed.startsWith("~~~")) {
+      fence = "~~~";
+      continue;
+    }
+    visible.push(line);
+  }
+
+  return visible.join("\n");
+}
+
 function parseMarkdown(content: string): StudyDocument | null {
   const questions: StudyQuestion[] = [];
-  const blocks = content.split(/\n(?=##\s+)/g);
+  const visibleContent = stripFencedCodeBlocks(content);
+  const blocks = visibleContent.split(/\n(?=##\s+)/g);
 
   for (const block of blocks) {
     const idMatch = block.match(/^##\s+(.+)$/m);
