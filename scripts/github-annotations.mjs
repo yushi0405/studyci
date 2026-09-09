@@ -76,7 +76,7 @@ try {
   for (const finding of result.findings ?? []) {
     const command = finding.severity === "error" ? "error" : "warning";
     const file = annotationPath(finding.file, workspace);
-    const line = await findQuestionLine(finding.file, finding.questionId);
+    const line = finding.line ?? await findQuestionLine(finding.file, finding.questionId);
     const title = `StudyCI ${finding.code}`;
     const related = finding.relatedQuestionId ? ` (related: ${finding.relatedQuestionId})` : "";
     console.log(`::${command} file=${escapeProperty(file)},line=${line},title=${escapeProperty(title)}::${escapeData(`${finding.message}${related}`)}`);

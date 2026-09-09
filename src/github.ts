@@ -83,7 +83,7 @@ export function githubAnnotationPath(file: string, workspace = process.env.GITHU
 export async function formatGitHubFinding(finding: Finding, workspace?: string): Promise<string> {
   const command = finding.severity === "error" ? "error" : "warning";
   const file = githubAnnotationPath(finding.file, workspace);
-  const line = await findQuestionLine(finding.file, finding.questionId);
+  const line = finding.line ?? await findQuestionLine(finding.file, finding.questionId);
   const title = `StudyCI ${finding.code}`;
   const related = finding.relatedQuestionId ? ` (related: ${finding.relatedQuestionId})` : "";
   return `::${command} file=${escapeProperty(file)},line=${line},title=${escapeProperty(title)}::${escapeData(`${finding.message}${related}`)}`;

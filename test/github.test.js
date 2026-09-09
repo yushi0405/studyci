@@ -42,6 +42,20 @@ test("formats a finding as a GitHub annotation with file and line", async (t) =>
   assert.equal(output, "::warning file=questions.yaml,line=6,title=StudyCI missing-source::Question has no source reference.");
 });
 
+test("prefers a source line carried by the finding", async (t) => {
+  const { root, file } = await fixture(t);
+  const output = await formatGitHubFinding({
+    severity: "warning",
+    code: "missing-source",
+    message: "Question has no source reference.",
+    file,
+    line: 3,
+    questionId: "q2"
+  }, root);
+
+  assert.equal(output, "::warning file=questions.yaml,line=3,title=StudyCI missing-source::Question has no source reference.");
+});
+
 test("action renderer converts JSON findings into GitHub annotations", async (t) => {
   const { root, file } = await fixture(t);
   const resultFile = join(root, "result.json");
@@ -50,9 +64,10 @@ test("action renderer converts JSON findings into GitHub annotations", async (t)
     code: "duplicate-id",
     message: "Duplicate question id 'q2'.",
     file,
+    line: 3,
     questionId: "q2"
   }] }));
 
   const { stdout } = await execFileAsync(process.execPath, [renderer, resultFile, root]);
-  assert.match(stdout, /::error file=questions\.yaml,line=6,title=StudyCI duplicate-id::Duplicate question id 'q2'\./);
+  assert.match(stdout, /::error file=questions\.yaml,line=3,title=StudyCI duplicate-id::Duplicate question id 'q2'\./);
 });

@@ -1,4 +1,4 @@
-import type { Finding, LoadedQuestion, OllamaConfig } from "../types.js";
+import type { CanonicalAnswer, Finding, LoadedQuestion, OllamaConfig } from "../types.js";
 
 const responseSchema = {
   type: "object",
@@ -20,6 +20,13 @@ const responseSchema = {
   required: ["findings"]
 } as const;
 
+function answerText(answer: CanonicalAnswer | string | undefined): string {
+  if (typeof answer === "string") return answer;
+  if (!answer) return "";
+  if (answer.kind === "text") return answer.text;
+  return answer.correct.join(" | ");
+}
+
 export async function reviewWithOllama(items: LoadedQuestion[], config: OllamaConfig): Promise<Finding[]> {
   const selected = items.slice(0, config.maxQuestions);
   const controller = new AbortController();
@@ -28,7 +35,7 @@ export async function reviewWithOllama(items: LoadedQuestion[], config: OllamaCo
     file,
     id: question.id,
     question: question.question,
-    answer: question.answer,
+    answer: answerText(question.answer as CanonicalAnswer | string | undefined),
     category: question.category ?? null,
     source: question.source ?? null
   }));
@@ -58,16 +65,17 @@ export async function reviewWithOllama(items: LoadedQuestion[], config: OllamaCo
     const body = await response.json() as { message?: { content?: string } };
     if (!body.message?.content) throw new Error("Ollama returned no message content.");
     const parsed = JSON.parse(body.message.content) as { findings?: Array<{ code: string; questionId: string; relatedQuestionId?: string; message: string }> };
-    const byId = new Map(selected.map((item) => [item.question.id, item.file]));
+    const byId = new Map(selected.flatMap((item) => item.question.id ? [[item.question.id, item] as const] : []));
 
     const findings: Finding[] = (parsed.findings ?? []).flatMap((finding) => {
-      const file = byId.get(finding.questionId);
-      if (!file) return [];
+      const item = byId.get(finding.questionId);
+      if (!item) return [];
       return [{
         severity: "warning" as const,
         code: finding.code,
         message: finding.message,
-        file,
+        file: item.file,
+        line: item.question.location?.line,
         questionId: finding.questionId,
         relatedQuestionId: finding.relatedQuestionId
       }];
