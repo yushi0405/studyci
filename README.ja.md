@@ -4,11 +4,11 @@
 
 [English](README.md)
 
-> **v0.1.0候補:** 決定論的チェックを中核にし、ローカルAIレビューはオプションです。
+> **v0.2.0:** 安全なディレクトリ探索、ファイルをまたぐ重複検出、GitHub PR annotationを追加しました。決定論的チェックを中核にし、ローカルAIレビューは引き続きオプションです。
 
 ## インストール
 
-npm初回公開後は次のように利用できます。
+npmからインストールできます。
 
 ```bash
 npm install -g studyci
@@ -86,7 +86,7 @@ ai:
   maxQuestions: 50
 ```
 
-v0.1.0のAIレビューは次の警告だけを保守的に出します。
+AIレビューは現在、次の警告だけを保守的に出します。
 
 - 意味的に重複した問題
 - 実質的に曖昧な問題文
@@ -97,24 +97,23 @@ v0.1.0のAIレビューは次の警告だけを保守的に出します。
 ## GitHub Action
 
 ```yaml
-- uses: yushi0405/studyci@main
+- uses: yushi0405/studyci@v0.2.0
   with:
     path: questions
 ```
 
 GitHub Actionは意図的に決定論的チェックのみ実行します。error / warningは、対象のリポジトリファイルと、特定できる場合は問題の行に紐づくGitHub annotationとして表示されます。GitHub-hosted runnerから利用者PC上のOllamaへ接続できることは前提にしません。
 
-## v0.1.0の範囲
+## v0.2.0の主な内容
 
-- [x] YAML / Markdown
-- [x] 決定論的lint
-- [x] CLI / GitHub Action
-- [x] JSON出力
-- [x] `.studyci.yaml`
-- [x] Ollamaによる任意の意味的レビュー
-- [x] npm公開用メタデータ
-- [x] npm初回公開
-- [x] GitHub release / tag
+- YAML / Markdownの学習コンテンツ
+- 決定論的lintルール
+- 安全な再帰ディレクトリ探索
+- ファイルをまたぐ重複ID・完全一致問題文の検出
+- JSON / GitHub annotation出力
+- GitHub Action連携
+- Ubuntu / WindowsのCI
+- Ollamaによる任意のローカル意味的レビュー
 
 ## License
 
