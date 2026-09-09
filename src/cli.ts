@@ -1,28 +1,16 @@
 #!/usr/bin/env node
-import { readdir, stat } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { checkDocument } from "./checker.js";
-import { loadStudyFile } from "./loader.js";
+import { discoverFiles } from "./discovery.js";
+import { loadStudyFile, tryLoadStudyFile } from "./loader.js";
 import { loadConfig } from "./config.js";
 import { reviewWithOllama } from "./ai/ollama.js";
-import type { Finding, LoadedQuestion } from "./types.js";
+import type { Finding, LoadedQuestion, StudyDocument } from "./types.js";
 
 const VERSION = "0.1.0";
-const supported = new Set([".yaml", ".yml", ".md", ".markdown"]);
 const valueOptions = new Set(["--model", "--base-url", "--format"]);
 
 type Format = "text" | "json";
-
-async function collectFiles(path: string): Promise<string[]> {
-  const info = await stat(path);
-  if (info.isFile()) return supported.has(extname(path).toLowerCase()) ? [path] : [];
-  const entries = await readdir(path, { withFileTypes: true });
-  return (await Promise.all(entries.map(async (entry) => {
-    const child = join(path, entry.name);
-    if (entry.isDirectory()) return collectFiles(child);
-    return supported.has(extname(entry.name).toLowerCase()) ? [child] : [];
-  }))).flat();
-}
 
 function option(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -62,23 +50,33 @@ function printFindings(findings: Finding[], format: Format, quiet = false): void
   if (findings.length === 0 && !quiet) console.log("No findings.");
 }
 
-async function loadQuestions(files: string[]): Promise<LoadedQuestion[]> {
+async function loadDocument(file: string, explicitFile: boolean): Promise<StudyDocument | null> {
+  return explicitFile ? loadStudyFile(file) : tryLoadStudyFile(file);
+}
+
+async function loadQuestions(files: string[], explicitFile: boolean): Promise<LoadedQuestion[]> {
   const result: LoadedQuestion[] = [];
   for (const file of files) {
-    const doc = await loadStudyFile(file);
+    const doc = await loadDocument(file, explicitFile);
+    if (!doc) continue;
     for (const question of doc.questions ?? []) result.push({ file, question });
   }
   return result;
 }
 
 async function runCheck(path: string, format: Format): Promise<void> {
-  const files = await collectFiles(resolve(path));
+  const { files, explicitFile } = await discoverFiles(resolve(path));
   const findings: Finding[] = [];
   let questions = 0;
+  let checkedFiles = 0;
   const categories: Record<string, number> = {};
+
   for (const file of files) {
     try {
-      const result = checkDocument(file, await loadStudyFile(file));
+      const doc = await loadDocument(file, explicitFile);
+      if (!doc) continue;
+      checkedFiles += 1;
+      const result = checkDocument(file, doc);
       findings.push(...result.findings);
       questions += result.questionCount;
       for (const [category, count] of Object.entries(result.categoryCounts)) categories[category] = (categories[category] ?? 0) + count;
@@ -86,10 +84,11 @@ async function runCheck(path: string, format: Format): Promise<void> {
       findings.push({ severity: "error", code: "parse-error", message: error instanceof Error ? error.message : String(error), file });
     }
   }
-  if (format === "json") console.log(JSON.stringify({ findings, questionCount: questions, fileCount: files.length, categoryCounts: categories }, null, 2));
+
+  if (format === "json") console.log(JSON.stringify({ findings, questionCount: questions, fileCount: checkedFiles, categoryCounts: categories }, null, 2));
   else {
     for (const finding of findings) console.log(formatFinding(finding));
-    console.log(`\nStudyCI checked ${questions} question(s) in ${files.length} file(s).`);
+    console.log(`\nStudyCI checked ${questions} question(s) in ${checkedFiles} file(s).`);
     console.log(`Errors: ${findings.filter((f) => f.severity === "error").length} | Warnings: ${findings.filter((f) => f.severity === "warning").length}`);
     if (Object.keys(categories).length) {
       console.log("Coverage:");
@@ -100,12 +99,12 @@ async function runCheck(path: string, format: Format): Promise<void> {
 }
 
 async function runReview(path: string, args: string[], format: Format): Promise<void> {
-  const files = await collectFiles(resolve(path));
+  const { files, explicitFile } = await discoverFiles(resolve(path));
   const config = await loadConfig();
   if (option(args, "--model")) config.ai.model = option(args, "--model")!;
   if (option(args, "--base-url")) config.ai.baseUrl = option(args, "--base-url")!;
   const quiet = hasFlag(args, "--quiet");
-  const questions = await loadQuestions(files);
+  const questions = await loadQuestions(files, explicitFile);
   const startedAt = Date.now();
 
   if (format === "text" && !quiet) {
