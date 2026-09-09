@@ -1,63 +1,19 @@
 #!/usr/bin/env node
 import { readdir, stat } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
-import { loadStudyFile } from "./loader.js";
 import { checkDocument } from "./checker.js";
+import { loadStudyFile } from "./loader.js";
+import { loadConfig } from "./config.js";
+import { reviewWithOllama } from "./ai/ollama.js";
+const VERSION = "0.1.0";
 const supported = new Set([".yaml", ".yml", ".md", ".markdown"]);
-async function collectFiles(path) {
-  const info = await stat(path);
-  if (info.isFile()) return supported.has(extname(path).toLowerCase()) ? [path] : [];
-  const entries = await readdir(path, { withFileTypes: true });
-  const nested = await Promise.all(entries.map(async (entry) => {
-    const child = join(path, entry.name);
-    if (entry.isDirectory()) return collectFiles(child);
-    return supported.has(extname(entry.name).toLowerCase()) ? [child] : [];
-  }));
-  return nested.flat();
-}
-function formatFinding(f) {
-  const symbol = f.severity === "error" ? "ERROR" : "WARN ";
-  const id = f.questionId ? ` [${f.questionId}]` : "";
-  return `${symbol} ${f.code}${id}: ${f.message} (${f.file})`;
-}
-async function main() {
-  const [command, rawPath = "."] = process.argv.slice(2);
-  if (command !== "check") {
-    console.error("Usage: studyci check <path>");
-    process.exitCode = 2;
-    return;
-  }
-  const target = resolve(rawPath);
-  const files = await collectFiles(target);
-  let errors = 0, warnings = 0, questions = 0;
-  const categories = {};
-  for (const file of files) {
-    try {
-      const doc = await loadStudyFile(file);
-      const result = checkDocument(file, doc);
-      questions += result.questionCount;
-      for (const [category, count] of Object.entries(result.categoryCounts)) categories[category] = (categories[category] ?? 0) + count;
-      for (const finding of result.findings) {
-        console.log(formatFinding(finding));
-        if (finding.severity === "error") errors += 1; else warnings += 1;
-      }
-    } catch (error) {
-      errors += 1;
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`ERROR parse-error: ${message} (${file})`);
-    }
-  }
-  console.log("");
-  console.log(`StudyCI checked ${questions} question(s) in ${files.length} file(s).`);
-  console.log(`Errors: ${errors} | Warnings: ${warnings}`);
-  const categoryEntries = Object.entries(categories).sort(([a], [b]) => a.localeCompare(b));
-  if (categoryEntries.length > 0) {
-    console.log("Coverage:");
-    for (const [category, count] of categoryEntries) console.log(`  ${category}: ${count}`);
-  }
-  if (errors > 0) process.exitCode = 1;
-}
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+async function collectFiles(path) { const info = await stat(path); if (info.isFile()) return supported.has(extname(path).toLowerCase()) ? [path] : []; const entries = await readdir(path, { withFileTypes: true }); return (await Promise.all(entries.map(async (entry) => { const child = join(path, entry.name); if (entry.isDirectory()) return collectFiles(child); return supported.has(extname(entry.name).toLowerCase()) ? [child] : []; }))).flat(); }
+function option(args, name) { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
+function positionalPath(args) { const skip = new Set(); for (let i = 0; i < args.length; i++) if (args[i].startsWith("--")) { skip.add(i); skip.add(i + 1); } return args.find((_, i) => !skip.has(i)) ?? "."; }
+function formatFinding(f) { const symbol = f.severity === "error" ? "ERROR" : "WARN "; const id = f.questionId ? ` [${f.questionId}]` : ""; const related = f.relatedQuestionId ? ` (related: ${f.relatedQuestionId})` : ""; return `${symbol} ${f.code}${id}: ${f.message}${related} (${f.file})`; }
+function printFindings(findings, format) { if (format === "json") { console.log(JSON.stringify({ findings }, null, 2)); return; } for (const finding of findings) console.log(formatFinding(finding)); if (!findings.length) console.log("No findings."); }
+async function loadQuestions(files) { const result = []; for (const file of files) { const doc = await loadStudyFile(file); for (const question of doc.questions ?? []) result.push({ file, question }); } return result; }
+async function runCheck(path, format) { const files = await collectFiles(resolve(path)); const findings = []; let questions = 0; const categories = {}; for (const file of files) { try { const result = checkDocument(file, await loadStudyFile(file)); findings.push(...result.findings); questions += result.questionCount; for (const [category, count] of Object.entries(result.categoryCounts)) categories[category] = (categories[category] ?? 0) + count; } catch (error) { findings.push({ severity: "error", code: "parse-error", message: error instanceof Error ? error.message : String(error), file }); } } if (format === "json") console.log(JSON.stringify({ findings, questionCount: questions, fileCount: files.length, categoryCounts: categories }, null, 2)); else { for (const finding of findings) console.log(formatFinding(finding)); console.log(`\nStudyCI checked ${questions} question(s) in ${files.length} file(s).`); console.log(`Errors: ${findings.filter((f) => f.severity === "error").length} | Warnings: ${findings.filter((f) => f.severity === "warning").length}`); if (Object.keys(categories).length) { console.log("Coverage:"); for (const [category, count] of Object.entries(categories).sort(([a], [b]) => a.localeCompare(b))) console.log(`  ${category}: ${count}`); } } if (findings.some((f) => f.severity === "error")) process.exitCode = 1; }
+async function runReview(path, args, format) { const files = await collectFiles(resolve(path)); const config = await loadConfig(); if (option(args, "--model")) config.ai.model = option(args, "--model"); if (option(args, "--base-url")) config.ai.baseUrl = option(args, "--base-url"); printFindings(await reviewWithOllama(await loadQuestions(files), config.ai), format); }
+async function main() { const args = process.argv.slice(2); if (args.includes("--version") || args[0] === "version") { console.log(VERSION); return; } const command = args.shift(); if (!command || !["check", "review"].includes(command)) { console.error("Usage:\n  studyci check [path] [--format text|json]\n  studyci review [path] [--model qwen3.5:9b] [--base-url http://127.0.0.1:11434] [--format text|json]\n  studyci --version"); process.exitCode = 2; return; } const format = option(args, "--format") ?? "text"; if (!["text", "json"].includes(format)) throw new Error("--format must be text or json."); const path = positionalPath(args); if (command === "check") await runCheck(path, format); else await runReview(path, args, format); }
+main().catch((error) => { console.error(`StudyCI: ${error instanceof Error ? error.message : String(error)}`); process.exitCode = 1; });

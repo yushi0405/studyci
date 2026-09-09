@@ -1,0 +1,6 @@
+ai:
+  provider: ollama
+  model: qwen3.5:9b
+  baseUrl: http://127.0.0.1:11434
+  timeoutMs: 120000
+  maxQuestions: 50
