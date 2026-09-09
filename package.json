@@ -1,6 +1,6 @@
 {
   "name": "studyci",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "CI and linting tools for collaboratively maintained study materials and certification question banks.",
   "type": "module",
   "bin": { "studyci": "dist/cli.js" },
