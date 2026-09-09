@@ -23,4 +23,16 @@ runs:
       env:
         STUDYCI_VERSION: ${{ inputs.version }}
         STUDYCI_PATH: ${{ inputs.path }}
-      run: npx --yes "studyci@$STUDYCI_VERSION" check "$STUDYCI_PATH"
+      run: |
+        RESULT_FILE="${RUNNER_TEMP}/studyci-result.json"
+        set +e
+        npx --yes "studyci@$STUDYCI_VERSION" check "$STUDYCI_PATH" --format json > "$RESULT_FILE"
+        STATUS=$?
+        set -e
+
+        if [ -s "$RESULT_FILE" ]; then
+          cat "$RESULT_FILE"
+          node "${{ github.action_path }}/scripts/github-annotations.mjs" "$RESULT_FILE" "$GITHUB_WORKSPACE"
+        fi
+
+        exit "$STATUS"

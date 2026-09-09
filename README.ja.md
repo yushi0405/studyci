@@ -23,12 +23,15 @@ npx studyci check ./questions
 
 ## 通常のlint
 
-`studyci check` はAIもネットワークも不要です。YAML/Markdown、必須項目、重複ID、完全一致の問題文、source欠落、tags、category、基本coverageを検査します。
+`studyci check` はAIもネットワークも不要です。YAML/Markdown、必須項目、ファイルをまたぐ重複を含む重複ID・完全一致の問題文、source欠落、tags、category、基本coverageを検査します。
 
 ```bash
 studyci check .
 studyci check . --format json
+studyci check . --format github
 ```
+
+`--format github` はGitHub Actionsのerror / warning annotation用workflow commandを出力します。findingにquestion IDがある場合、一般的なYAMLの `id:` 行やMarkdownの `## id` 見出しから、可能な範囲で対象行を特定します。
 
 ## OllamaによるローカルAIレビュー
 
@@ -96,10 +99,10 @@ v0.1.0のAIレビューは次の警告だけを保守的に出します。
 ```yaml
 - uses: yushi0405/studyci@main
   with:
-    path: .
+    path: questions
 ```
 
-GitHub Actionは意図的に決定論的チェックのみ実行します。GitHub-hosted runnerから利用者PC上のOllamaへ接続できることを前提にしないためです。
+GitHub Actionは意図的に決定論的チェックのみ実行します。error / warningは、対象のリポジトリファイルと、特定できる場合は問題の行に紐づくGitHub annotationとして表示されます。GitHub-hosted runnerから利用者PC上のOllamaへ接続できることは前提にしません。
 
 ## v0.1.0の範囲
 

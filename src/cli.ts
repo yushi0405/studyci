@@ -2,6 +2,7 @@
 import { resolve } from "node:path";
 import { checkCrossFileDuplicates, checkDocument } from "./checker.js";
 import { discoverFiles } from "./discovery.js";
+import { formatGitHubFinding } from "./github.js";
 import { loadStudyFile, tryLoadStudyFile } from "./loader.js";
 import { loadConfig } from "./config.js";
 import { reviewWithOllama } from "./ai/ollama.js";
@@ -10,7 +11,7 @@ import type { Finding, LoadedQuestion, StudyDocument } from "./types.js";
 const VERSION = "0.1.0";
 const valueOptions = new Set(["--model", "--base-url", "--format"]);
 
-type Format = "text" | "json";
+type Format = "text" | "json" | "github";
 
 function option(args: string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -41,9 +42,13 @@ function formatFinding(f: Finding): string {
   return `${symbol} ${f.code}${id}: ${f.message}${related} (${f.file})`;
 }
 
-function printFindings(findings: Finding[], format: Format, quiet = false): void {
+async function printFindings(findings: Finding[], format: Format, quiet = false): Promise<void> {
   if (format === "json") {
     console.log(JSON.stringify({ findings }, null, 2));
+    return;
+  }
+  if (format === "github") {
+    for (const finding of findings) console.log(await formatGitHubFinding(finding));
     return;
   }
   for (const finding of findings) console.log(formatFinding(finding));
@@ -91,9 +96,14 @@ async function runCheck(path: string, format: Format): Promise<void> {
 
   findings.push(...checkCrossFileDuplicates(projectQuestions));
 
-  if (format === "json") console.log(JSON.stringify({ findings, questionCount: questions, fileCount: checkedFiles, categoryCounts: categories }, null, 2));
-  else {
-    for (const finding of findings) console.log(formatFinding(finding));
+  if (format === "json") {
+    console.log(JSON.stringify({ findings, questionCount: questions, fileCount: checkedFiles, categoryCounts: categories }, null, 2));
+  } else {
+    if (format === "github") {
+      for (const finding of findings) console.log(await formatGitHubFinding(finding));
+    } else {
+      for (const finding of findings) console.log(formatFinding(finding));
+    }
     console.log(`\nStudyCI checked ${questions} question(s) in ${checkedFiles} file(s).`);
     console.log(`Errors: ${findings.filter((f) => f.severity === "error").length} | Warnings: ${findings.filter((f) => f.severity === "warning").length}`);
     if (Object.keys(categories).length) {
@@ -124,7 +134,7 @@ async function runReview(path: string, args: string[], format: Format): Promise<
   }
 
   const findings = await reviewWithOllama(questions, config.ai);
-  printFindings(findings, format, quiet);
+  await printFindings(findings, format, quiet);
 
   if (format === "text" && !quiet) {
     const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -139,12 +149,12 @@ async function main(): Promise<void> {
   if (args.includes("--version") || args[0] === "version") { console.log(VERSION); return; }
   const command = args.shift();
   if (!command || !["check", "review"].includes(command)) {
-    console.error("Usage:\n  studyci check [path] [--format text|json]\n  studyci review [path] [--model qwen3.5:9b] [--base-url http://127.0.0.1:11434] [--format text|json] [--quiet]\n  studyci --version");
+    console.error("Usage:\n  studyci check [path] [--format text|json|github]\n  studyci review [path] [--model qwen3.5:9b] [--base-url http://127.0.0.1:11434] [--format text|json|github] [--quiet]\n  studyci --version");
     process.exitCode = 2;
     return;
   }
   const format = (option(args, "--format") ?? "text") as Format;
-  if (!(["text", "json"] as string[]).includes(format)) throw new Error("--format must be text or json.");
+  if (!(["text", "json", "github"] as string[]).includes(format)) throw new Error("--format must be text, json, or github.");
   const path = positionalPath(args);
   if (command === "check") await runCheck(path, format);
   else await runReview(path, args, format);
